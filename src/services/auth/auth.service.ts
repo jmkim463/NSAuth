@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AuthDto } from '../../core/dtos/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../../core/entities/user.entity';
@@ -70,6 +70,10 @@ export class AuthService {
   async join(authDto: AuthDto): Promise<User> {
     const { username, password } = authDto;
 
+    if (await this.isHaveSameUsername(username)) {
+      throw new ConflictException('중복된 아이디 입니다.');
+    }
+
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(password, salt);
 
@@ -77,5 +81,10 @@ export class AuthService {
     const entity = await new this.userModel(user);
 
     return entity.save();
+  }
+
+  async isHaveSameUsername(username: string): Promise<boolean> {
+    const user = await this.userModel.findOne({ username: username });
+    return user !== null;
   }
 }
