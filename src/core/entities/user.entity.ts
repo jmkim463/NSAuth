@@ -1,9 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-import * as bcrypt from 'bcrypt';
+import { Document, Types } from 'mongoose';
 
 @Schema()
 export class User {
+  @Prop({ type: Types.ObjectId, auto: true })
+  _id: string;
+
   @Prop()
   username: string;
 
@@ -18,10 +20,6 @@ export class User {
 
   @Prop()
   updateAt: Date;
-
-  async validatePassword(password: string): Promise<boolean> {
-    return await bcrypt.compare(password, this.password);
-  }
 }
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);

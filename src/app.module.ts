@@ -4,7 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './services/auth/auth.module';
 import { MiddlewareConsumer } from '@nestjs/common/interfaces/middleware/middleware-consumer.interface';
-import * as mongoose from "mongoose";
+import * as mongoose from 'mongoose';
+import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import * as mongoose from "mongoose";
       }),
       inject: [ConfigService],
     }),
+    PassportModule,
     AuthModule,
   ],
   controllers: [AuthController],
