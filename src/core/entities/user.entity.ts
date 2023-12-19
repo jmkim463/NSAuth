@@ -18,8 +18,17 @@ export class User {
   @Prop()
   createAt: Date;
 
-  @Prop()
-  updateAt: Date;
+  @Prop({
+    required: false,
+    default: null,
+  })
+  refreshToken: string;
+
+  @Prop({
+    required: false,
+    default: null,
+  })
+  refreshTokenExp: Date;
 }
 export type UserDocument = User & Document;
 export const UserSchema = SchemaFactory.createForClass(User);

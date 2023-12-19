@@ -1,8 +1,12 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthDto } from '../../core/dtos/auth.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '../../core/entities/user.entity';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -33,11 +37,15 @@ export class AuthService {
 
   // access token 발급
   getAccessToken(user: User): Promise<string> {
-    const { username, nickname } = user;
-    const payload = { username, nickname };
+    const { username, _id } = user;
+    const payload = { username, _id };
     const token = this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
-      expiresIn: this.configService.get<string>('JWT.ACCESS.EXPIRATION.TIME'),
+      expiresIn:
+        this.configService.get<number>('JWT.ACCESS.EXPIRATION.DAY') *
+        24 *
+        60 *
+        60,
     });
 
     return token;
@@ -45,11 +53,15 @@ export class AuthService {
 
   // refresh token 발급
   getRefreshToken(user: User): Promise<string> {
-    const { username, nickname } = user;
-    const payload = { username, nickname };
+    const { username, _id } = user;
+    const payload = { username, _id };
     const token = this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT.REFRESH.SECRET'),
-      expiresIn: this.configService.get<string>('JWT.REFRESH.EXPIRATION.TIME'),
+      expiresIn:
+        this.configService.get<number>('JWT.REFRESH.EXPIRATION.DAY') *
+        24 *
+        60 *
+        60,
     });
 
     return token;
@@ -60,10 +72,47 @@ export class AuthService {
     _id: string,
     refreshToken: string,
   ): Promise<void> {
+    const token = this.setHashedRefreshToken(refreshToken);
+    const exp = this.getRefreshTokenExp();
+
     await this.userModel.updateOne(
       { _id: _id },
-      { refreshToken: refreshToken },
+      { refreshToken: token, refreshExp: exp },
     );
+  }
+
+  // refresh token 재 암호화
+  private setHashedRefreshToken(refreshToken: string) {
+    const token = bcrypt.hashSync(refreshToken, 10);
+    return token;
+  }
+
+  // refresh token 만료 기간
+  private getRefreshTokenExp(): Date {
+    const now = new Date();
+    const refreshTokenExp = new Date(
+      now.getTime() +
+        this.configService.get<number>('JWT.REFRESH.EXPIRATION.DAY') *
+          24 *
+          60 *
+          60,
+    );
+    return refreshTokenExp;
+  }
+
+  // 토큰을 이용한 로그인 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  async validateUserWithToken(accessToken: string): Promise<User> {
+    const verify = await this.jwtService.verifyAsync(accessToken.toString(), {
+      secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
+    });
+
+    const { _id } = verify;
+    const user = await this.userModel.findOne({
+      _id: new mongoose.Types.ObjectId(_id),
+    });
+    console.log(user);
+
+    return user;
   }
 
   // 회원가입
@@ -83,7 +132,7 @@ export class AuthService {
     return entity.save();
   }
 
-  async isHaveSameUsername(username: string): Promise<boolean> {
+  private async isHaveSameUsername(username: string): Promise<boolean> {
     const user = await this.userModel.findOne({ username: username });
     return user !== null;
   }
