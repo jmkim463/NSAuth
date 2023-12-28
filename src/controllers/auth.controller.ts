@@ -41,8 +41,9 @@ export class AuthController {
   @Post('login/auto')
   async loginWithToken(
     @Body('accessToken') accessToken: string,
+    @Body('refreshToken') refreshToken: string,
   ): Promise<LoginDto> {
-    return await this.userService.loginWithToken(accessToken);
+    return await this.userService.loginWithToken(accessToken, refreshToken);
   }
 
   @ApiOperation({ summary: '일반 회원 회원가입' })

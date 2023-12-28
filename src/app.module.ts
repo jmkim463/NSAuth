@@ -6,6 +6,8 @@ import { AuthModule } from './services/auth/auth.module';
 import { MiddlewareConsumer } from '@nestjs/common/interfaces/middleware/middleware-consumer.interface';
 import * as mongoose from 'mongoose';
 import { PassportModule } from '@nestjs/passport';
+import { UserModule } from './services/user/user.module';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -22,8 +24,10 @@ import { PassportModule } from '@nestjs/passport';
       }),
       inject: [ConfigService],
     }),
+    HttpModule,
     PassportModule,
     AuthModule,
+    UserModule,
   ],
   controllers: [AuthController],
 })

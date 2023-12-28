@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { User } from '../../core/entities/user.entity';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -16,11 +16,7 @@ export class AuthService {
     const payload = { username, _id };
     const token = this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
-      expiresIn:
-        this.configService.get<number>('JWT.ACCESS.EXPIRATION.DAY') *
-        24 *
-        60 *
-        60,
+      expiresIn: this.configService.get<number>('JWT.ACCESS.EXPIRATION'),
     });
 
     return token;
@@ -32,38 +28,49 @@ export class AuthService {
     const payload = { username, _id };
     const token = this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT.REFRESH.SECRET'),
-      expiresIn:
-        this.configService.get<number>('JWT.REFRESH.EXPIRATION.DAY') *
-        24 *
-        60 *
-        60,
+      expiresIn: this.configService.get<number>('JWT.REFRESH.EXPIRATION'),
     });
 
     return token;
   }
 
-  // refresh token 만료 기간
-  getRefreshTokenExp(): Date {
-    const now = new Date();
-    const refreshTokenExp = new Date(
-      now.getTime() +
-        this.configService.get<number>('JWT.REFRESH.EXPIRATION.DAY') *
-          24 *
-          60 *
-          60,
-    );
-    return refreshTokenExp;
+  async verifyToken(
+    accessToken: string,
+    refreshToken: string,
+  ): Promise<string> {
+    try {
+      return await this.verifyAccessToken(accessToken);
+    } catch (err) {
+      if (err instanceof TokenExpiredError) {
+        return await this.verifyRefreshToken(refreshToken);
+      } else {
+        throw new HttpException('일치하지 않은 accessToken', 401);
+      }
+    }
   }
 
-  async verifyToken(token: string): Promise<string> {
-    try {
-      const _id = await this.jwtService.verifyAsync(token.toString(), {
-        secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
-      });
+  private async verifyAccessToken(accessToken: string): Promise<string> {
+    const { _id } = await this.jwtService.verifyAsync(accessToken.toString(), {
+      secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
+    });
+    return _id;
+  }
 
+  private async verifyRefreshToken(refreshToken: string): Promise<string> {
+    try {
+      const { _id } = await this.jwtService.verifyAsync(
+        refreshToken.toString(),
+        {
+          secret: this.configService.get<string>('JWT.ACCESS.SECRET'),
+        },
+      );
       return _id;
     } catch (err) {
-      throw new BadRequestException();
+      if (err instanceof TokenExpiredError) {
+        throw new HttpException('만료된 refreshToken 입니다.', 410);
+      } else {
+        throw new HttpException('일치하지 않은 refreshToken', 401);
+      }
     }
   }
 }
